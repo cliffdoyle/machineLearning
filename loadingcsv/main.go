@@ -106,6 +106,21 @@ func SplitDataset(dataset []Data, attribute string)map[string][]Data{
 	return subsets
 }
 
+func informationGain(dataset []Data, attribute string) float64 {
+	splitted := SplitDataset(dataset, attribute)
+	totalSamples := len(dataset)
+	entropy := Entropy(computeProbabilities(countClassOccurrences(dataset), totalSamples))
+
+	weightedEntropy := 0.0
+	for _, subset := range splitted {
+		proportion:=float64(len(subset))/float64(totalSamples)
+		weightedEntropy += proportion * Entropy(computeProbabilities(countClassOccurrences(subset), len(subset)))
+	}
+
+	infogain:=entropy-weightedEntropy
+	return infogain
+}
+
 func main() {
 	_, header, err := LoadCsv("dataset.csv")
 	if err != nil {
