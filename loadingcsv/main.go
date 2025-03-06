@@ -57,7 +57,7 @@ func countClassOccurrences(dataset []Data) map[string]int{
 	classCounts:=make(map[string]int)
 
 	for _,row:=range dataset{
-		classCounts[row.Wind]++
+		classCounts[row.PlayTennis]++
 	}
 
 return classCounts
@@ -65,7 +65,7 @@ return classCounts
 
 //Calculates probability of each class
 
-func computeProbabilities(classCounts map[string]int, totalSamples int)map[string]float{
+func computeProbabilities(classCounts map[string]int, totalSamples int)map[string]float64{
 	probabilities:=make(map[string]float64)
 
 	for class,count:=range classCounts{
@@ -82,6 +82,9 @@ func main(){
 	}
 
 	files:=countClassOccurrences(header)
+	totalSamples:=len(header)
+	probabilities:=computeProbabilities(files,totalSamples)
 	fmt.Println(files)
+	fmt.Println(probabilities)
 	
 }
