@@ -77,13 +77,13 @@ func SplitDataset(dataset []Data, attribute string) map[string][]Data {
 	for _, row := range dataset {
 		var key string
 		switch attribute {
-		case "outlook":
+		case "Outlook":
 			key = row.Outlook
-		case "temperature":
+		case "Temperature":
 			key = row.Temprature
-		case "humidity":
+		case "Humidity":
 			key = row.Humidity
-		case "wind":
+		case "Wind":
 			key = row.Wind
 
 		}
@@ -116,11 +116,11 @@ func InformationGain(dataset []Data, attribute string) float64 {
 	entropy := Entropy(dataset)
 
 	weightedEntropy := 0.0
-	count := 0
+	// count := 0
 	for _, subset := range splitted {
-		fmt.Println(count)
-		count++
-		fmt.Println(subset)
+		// fmt.Println(count)
+		// count++
+		// fmt.Println(subset)
 		proportion := float64(len(subset)) / float64(totalSamples)
 		weightedEntropy += proportion * Entropy(subset)
 	}
@@ -132,6 +132,8 @@ func InformationGain(dataset []Data, attribute string) float64 {
 // Gain ratio function calculates the split information of the target attribute
 func GainRatio(dataset []Data, attribute string) float64 {
 	splitted := SplitDataset(dataset, attribute)
+	fmt.Println("Splitted subsets:", splitted)
+
 
 	totalSamples := len(dataset)
 
@@ -152,12 +154,46 @@ func GainRatio(dataset []Data, attribute string) float64 {
 	return gainRatio
 }
 
+// function to find the best attribute for splitting
+func BestAttribute(dataset []Data) (string, error) {
+	header, _, err := LoadCsv("dataset.csv")
+	if err != nil {
+		return "", fmt.Errorf("%v", err)
+	}
+	fmt.Println("Loaded Headers:", header)
+	bestAttr := ""
+	bestGainRatio := -1.0
+
+	for _, attr := range header[:len(header)-1] {
+		gainRatio := GainRatio(dataset, attr)
+		fmt.Printf("Gain Ratio for %s: %f\n", attr, gainRatio)
+		if gainRatio > bestGainRatio {
+			bestGainRatio = gainRatio
+			// fmt.Printf("best gain ratio %f",bestGainRatio)
+			bestAttr = attr
+
+		}
+
+	}
+
+	return bestAttr, nil
+}
+
 func main() {
 	_, header, err := LoadCsv("dataset.csv")
 	if err != nil {
 		fmt.Println("error openning file")
 		return
 	}
+	
+	bestAttribute,err:=BestAttribute(header)
+	if err !=nil{
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Printf("best attribute for our dataset is %v\n",bestAttribute)
+	// fmt.Println(heado)
 
 	// files := countClassOccurrences(header)
 	// totalSamples := len(header)
