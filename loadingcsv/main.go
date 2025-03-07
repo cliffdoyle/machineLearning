@@ -72,7 +72,10 @@ func computeProbabilities(classCounts map[string]int, totalSamples int) map[stri
 	return probabilities
 }
 //Calculates entropy based on probabilities to determine the impurity of the dataset
-func Entropy(probabilities map[string]float64) float64 {
+func Entropy(dataset []Data) float64 {
+	countClassOccurrences:=countClassOccurrences(dataset)
+	totalSamples:=len(dataset)
+	probabilities:=computeProbabilities(countClassOccurrences,totalSamples)
 	entropy := 0.0
 
 	for _, probability := range probabilities {
