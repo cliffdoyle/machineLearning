@@ -71,26 +71,11 @@ func computeProbabilities(classCounts map[string]int, totalSamples int) map[stri
 	}
 	return probabilities
 }
-//Calculates entropy based on probabilities to determine the impurity of the dataset
-func Entropy(dataset []Data) float64 {
-	countClassOccurrences:=countClassOccurrences(dataset)
-	totalSamples:=len(dataset)
-	probabilities:=computeProbabilities(countClassOccurrences,totalSamples)
-	entropy := 0.0
-
-	for _, probability := range probabilities {
-		if probability > 0 {
-			entropy -= probability * math.Log2(probability)
-		}
-
-	}
-	return entropy
-}
 
 //Split the dataset based on the attribute
 func SplitDataset(dataset []Data, attribute string)map[string][]Data{
 	subsets:=make(map[string][]Data)
-
+	
 	for _,row:=range dataset{
 		var key string
 		switch attribute{
@@ -103,21 +88,44 @@ func SplitDataset(dataset []Data, attribute string)map[string][]Data{
 			case "wind":
 				key=row.Wind
 				
+			}
+			subsets[key]=append(subsets[key],row)
 		}
-		subsets[key]=append(subsets[key],row)
+		// fmt.Println(subsets)
+		return subsets
 	}
-	return subsets
+
+//Calculates entropy based on probabilities to determine the impurity of the dataset
+func Entropy(dataset []Data) float64 {
+	countClassOccurrences:=countClassOccurrences(dataset)
+	// fmt.Println(countClassOccurrences)
+	totalSamples:=len(dataset)
+	probabilities:=computeProbabilities(countClassOccurrences,totalSamples)
+	// fmt.Println(probabilities)
+	entropy := 0.0
+
+	for _, probability := range probabilities {
+		if probability > 0 {
+			entropy -= probability * math.Log2(probability)
+		}
+
+	}
+	return entropy
 }
 
-func informationGain(dataset []Data, attribute string) float64 {
+func InformationGain(dataset []Data, attribute string) float64 {
 	splitted := SplitDataset(dataset, attribute)
 	totalSamples := len(dataset)
-	entropy := Entropy(computeProbabilities(countClassOccurrences(dataset), totalSamples))
+	entropy := Entropy(dataset)
 
 	weightedEntropy := 0.0
+	count:=0
 	for _, subset := range splitted {
+		fmt.Println(count)
+		count++
+		fmt.Println(subset)
 		proportion:=float64(len(subset))/float64(totalSamples)
-		weightedEntropy += proportion * Entropy(computeProbabilities(countClassOccurrences(subset), len(subset)))
+		weightedEntropy += proportion * Entropy(subset)
 	}
 
 	infogain:=entropy-weightedEntropy
@@ -131,17 +139,17 @@ func main() {
 		return
 	}
 
-	files := countClassOccurrences(header)
-	totalSamples := len(header)
-	probabilities := computeProbabilities(files, totalSamples)
-	entropy:=Entropy(probabilities)
-
-	splitted:=SplitDataset(header,"outlook")
-	for key,value:=range splitted{
-		fmt.Printf("%s: %v\n",key,value)
-	}
-	fmt.Println(files)
-	fmt.Println(probabilities)
-	fmt.Printf("%.2f\n",entropy)
+	// files := countClassOccurrences(header)
+	// totalSamples := len(header)
+	// probabilities := computeProbabilities(files, totalSamples)
+	// splitted:=SplitDataset(header,"outlook")
+	// entropy:=0.0
+	// for _,value:=range splitted{
+	// 	// fmt.Println(value)
+	// 	entropy:=Entropy(value)
+	// 	fmt.Printf("%.2f\n",entropy)
+	// }
 	
+	infoGain:=InformationGain(header,"outlook")
+	fmt.Printf("Information gain for outlook attribute is:%.2f\n",infoGain)
 }
