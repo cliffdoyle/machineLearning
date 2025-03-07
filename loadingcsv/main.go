@@ -155,11 +155,7 @@ func GainRatio(dataset []Data, attribute string) float64 {
 }
 
 // function to find the best attribute for splitting
-func BestAttribute(dataset []Data) (string, error) {
-	header, _, err := LoadCsv("dataset.csv")
-	if err != nil {
-		return "", fmt.Errorf("%v", err)
-	}
+func BestAttribute(dataset []Data,header []string) (string, error) {
 	fmt.Println("Loaded Headers:", header)
 	bestAttr := ""
 	bestGainRatio := -1.0
@@ -180,13 +176,13 @@ func BestAttribute(dataset []Data) (string, error) {
 }
 
 func main() {
-	_, header, err := LoadCsv("dataset.csv")
+	 header,dataset, err := LoadCsv("dataset.csv")
 	if err != nil {
 		fmt.Println("error openning file")
 		return
 	}
 	
-	bestAttribute,err:=BestAttribute(header)
+	bestAttribute,err:=BestAttribute(dataset,header)
 	if err !=nil{
 		fmt.Println(err)
 		return
@@ -206,6 +202,6 @@ func main() {
 	// 	fmt.Printf("%.2f\n",entropy)
 	// }
 
-	infoGain := InformationGain(header, "outlook")
+	infoGain := InformationGain(dataset, "Outlook")
 	fmt.Printf("Information gain for outlook attribute is:%.2f\n", infoGain)
 }
