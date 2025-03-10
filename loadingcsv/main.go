@@ -132,7 +132,7 @@ func InformationGain(dataset []Data, attribute string) float64 {
 // Gain ratio function calculates the split information of the target attribute
 func GainRatio(dataset []Data, attribute string) float64 {
 	splitted := SplitDataset(dataset, attribute)
-	fmt.Println("Splitted subsets:", splitted)
+	// fmt.Println("Splitted subsets:", splitted)
 
 
 	totalSamples := len(dataset)
@@ -155,14 +155,14 @@ func GainRatio(dataset []Data, attribute string) float64 {
 }
 
 // function to find the best attribute for splitting
-func BestAttribute(dataset []Data,header []string) (string, error) {
-	fmt.Println("Loaded Headers:", header)
+func BestAttribute(dataset []Data,header []string) string {
+	// fmt.Println("Loaded Headers:", header)
 	bestAttr := ""
 	bestGainRatio := -1.0
 
 	for _, attr := range header[:len(header)-1] {
 		gainRatio := GainRatio(dataset, attr)
-		fmt.Printf("Gain Ratio for %s: %f\n", attr, gainRatio)
+		// fmt.Printf("Gain Ratio for %s: %f\n", attr, gainRatio)
 		if gainRatio > bestGainRatio {
 			bestGainRatio = gainRatio
 			// fmt.Printf("best gain ratio %f",bestGainRatio)
@@ -172,8 +172,58 @@ func BestAttribute(dataset []Data,header []string) (string, error) {
 
 	}
 
-	return bestAttr, nil
+	return bestAttr
 }
+
+type TreeNode struct{
+	Attribute string
+	Children map[string]*TreeNode
+	Class string
+	IsLeaf bool
+}
+
+func BuildDecisionTree(dataset []Data,header []string) *TreeNode{
+	classCounts:=countClassOccurrences(dataset)
+	if len(classCounts)==1{
+		for class:= range classCounts{
+			return &TreeNode{Class:class,IsLeaf:true}
+		}
+		
+		
+	}
+	bestAttr:=BestAttribute(dataset,header)
+	if bestAttr==""{
+		mostCommonClass:=""
+		maxCount:=0
+		for class,count:=range classCounts{
+			if count > maxCount{
+				maxCount=count
+				mostCommonClass=class
+			}
+		}
+		return &TreeNode{Class:mostCommonClass,IsLeaf:true}
+	}
+	node:=&TreeNode{Attribute:bestAttr,Children:make(map[string]*TreeNode)}
+	splitted:=SplitDataset(dataset,bestAttr)
+	for attrValue,subset:=range splitted{
+		node.Children[attrValue]=BuildDecisionTree(subset,header)
+	}
+	return node
+}
+
+// PrintDecisionTree prints the tree structure
+func PrintDecisionTree(node *TreeNode, indent string) {
+	if node.IsLeaf {
+		fmt.Println(indent + "Class: " + node.Class)
+		return
+	}
+	fmt.Println(indent + "Attribute: " + node.Attribute)
+	for value, child := range node.Children {
+		fmt.Println(indent + "  ├── Value:", value)
+		PrintDecisionTree(child, indent+"  |  ")
+	}
+}
+
 
 func main() {
 	 header,dataset, err := LoadCsv("dataset.csv")
@@ -181,14 +231,14 @@ func main() {
 		fmt.Println("error openning file")
 		return
 	}
-	
-	bestAttribute,err:=BestAttribute(dataset,header)
-	if err !=nil{
-		fmt.Println(err)
-		return
-	}
 
-	fmt.Printf("best attribute for our dataset is %v\n",bestAttribute)
+	tree := BuildDecisionTree(dataset, header)
+	fmt.Println("Decision Tree Structure:")
+	PrintDecisionTree(tree, "")
+	
+	// bestAttribute:=BestAttribute(dataset,header)
+
+	// fmt.Printf("best attribute for our dataset is %v\n",bestAttribute)
 	// fmt.Println(heado)
 
 	// files := countClassOccurrences(header)
@@ -202,6 +252,6 @@ func main() {
 	// 	fmt.Printf("%.2f\n",entropy)
 	// }
 
-	infoGain := InformationGain(dataset, "Outlook")
-	fmt.Printf("Information gain for outlook attribute is:%.2f\n", infoGain)
+	// infoGain := InformationGain(dataset, "Outlook")
+	// fmt.Printf("Information gain for outlook attribute is:%.2f\n", infoGain)
 }
