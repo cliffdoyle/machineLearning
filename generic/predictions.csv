@@ -1,0 +1,5 @@
+Outlook,Temperature,Humidity,Wind,Prediction
+Sunny,Hot,High,Weak,No
+Sunny,Mild,Normal,Weak,Yes
+Overcast,Cool,High,Strong,Unknown
+Rain,Hot,Normal,Weak,Yes
