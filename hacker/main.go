@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -127,6 +128,48 @@ func convertValue(value string, colType ColumnType) interface{} {
 	default:
 		return value
 	}
+}
+
+// CountClass counts the occurrence of the target class in
+// our dataset
+func CountClassOccurrences(dataset [][]string) map[string]int {
+	classCounts := make(map[string]int)
+
+	for _, row := range dataset {
+
+		if len(row) == 0 {
+			continue
+		}
+		targetClass := row[len(row)-1]
+		classCounts[targetClass]++
+	}
+
+	return classCounts
+}
+
+// Calculates probability of each class
+func ComputeProbabilities(classCounts map[string]int, totalSamples int) map[string]float64 {
+	probabilities := make(map[string]float64)
+
+	for class, count := range classCounts {
+		probabilities[class] = float64(count) / float64(totalSamples)
+	}
+	return probabilities
+}
+
+// Calculates entropy based on probabilities to determine the impurity of the dataset
+func Entropy(dataset [][]string) float64 {
+	countClassOccurrences := CountClassOccurrences(dataset)
+	totalSamples := len(dataset)
+	probabilities := ComputeProbabilities(countClassOccurrences, totalSamples)
+	entropy := 0.0
+
+	for _, probability := range probabilities {
+		if probability > 0 {
+			entropy -= probability * math.Log2(probability)
+		}
+	}
+	return entropy
 }
 
 func main() {
