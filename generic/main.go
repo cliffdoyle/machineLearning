@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
+	"flag"
+
 	// "flag"
 	"fmt"
 	"math"
@@ -269,13 +271,16 @@ func Predict(tree *TreeNode, instance map[string]string) string {
 	if tree.IsLeaf {
 		return tree.Class
 	}
-
+// fmt.Println("tree.attribute",instance[tree.Attribute])
 	attributeValue, exists := instance[tree.Attribute]
+	fmt.Println("exists:",exists)
 	if !exists {
 		return "Unknown"
 	}
-
+	// fmt.Println(attributeValue)
 	child, found := tree.Children[attributeValue]
+	fmt.Println(child)
+	// fmt.Println(child.Children)
 	if !found {
 		return "Unknown"
 	}
@@ -326,80 +331,40 @@ func PredictFromModel(inputFile, modelFile, outputFile string) error {
 	return nil
 }
 
-// func main() {
-// 		// Define CLI flags
-// 		command := flag.String("c", "", "Command: train or predict")
-// 		inputFile := flag.String("i", "", "Input CSV file")
-// 		targetCol := flag.String("t", "", "Target column (only for training)")
-// 		modelFile := flag.String("m", "", "Model file (only for prediction)")
-// 		outputFile := flag.String("o", "", "Output file")
-
-// 		//Parse flags
-// 		flag.Parse()
-
-// 	header, dataset, _ := LoadCsv("dataset.csv")
-// 	fmt.Println(header)
-
-// 	classCount := CountClassOccurrences(dataset)
-// 	toatalSamples := len(dataset)
-// 	fmt.Println(ComputeProbabilities(classCount, toatalSamples))
-// 	fmt.Println(classCount)
-
-// 	// splitedData := SplitDataset(dataset, header, `Humidity`)
-// 	// for k, slices := range splitedData {
-// 	// 	fmt.Printf("key: %s\n value: %v\n", k, slices)
-// 	// }
-// 	// for class,row:=range classCount{
-// 	// 	fmt.Println()
-// 	// }
-
-//		entr := Entropy(dataset)
-//		fmt.Printf("%.4f\n", entr)
-//	}
 func main() {
-	// // Define CLI flags
-	// command := flag.String("c", "", "Command: train or predict")
-	// inputFile := flag.String("i", "", "Input CSV file")
-	// targetCol := flag.String("t", "", "Target column (only for training)")
-	// modelFile := flag.String("m", "", "Model file (only for prediction)")
-	// outputFile := flag.String("o", "", "Output file")
+	// Define CLI flags
+	command := flag.String("c", "", "Command: train or predict")
+	inputFile := flag.String("i", "", "Input CSV file")
+	targetCol := flag.String("t", "", "Target column (only for training)")
+	modelFile := flag.String("m", "", "Model file (only for prediction)")
+	outputFile := flag.String("o", "", "Output file")
 
-	// // Parse flags
-	// flag.Parse()
+	// Parse flags
+	flag.Parse()
 
-	// // Execute command
-	// switch *command {
-	// case "train":
-	// 	if *inputFile == "" || *targetCol == "" || *outputFile == "" {
-	// 		fmt.Println("Usage: dt -c train -i <input.csv> -t <target> -o <model.dt>")
-	// 		return
-	// 	}
-	// 	err := TrainModel(*inputFile, *targetCol, *outputFile)
-	// 	if err != nil {
-	// 		fmt.Println("Error:", err)
-	// 	}
+	// Execute command
+	switch *command {
+	case "train":
+		if *inputFile == "" || *targetCol == "" || *outputFile == "" {
+			fmt.Println("Usage: dt -c train -i <input.csv> -t <target> -o <model.dt>")
+			return
+		}
+		err := TrainModel(*inputFile, *targetCol, *outputFile)
+		if err != nil {
+			fmt.Println("Error:", err)
+		}
 
-	// case "predict":
-	// 	if *inputFile == "" || *modelFile == "" || *outputFile == "" {
-	// 		fmt.Println("Usage: dt -c predict -i <test.csv> -m <model.dt> -o <predictions.csv>")
-	// 		return
-	// 	}
-	// 	err := PredictFromModel(*inputFile, *modelFile, *outputFile)
-	// 	if err != nil {
-	// 		fmt.Println("Error:", err)
-	// 	}
+	case "predict":
+		if *inputFile == "" || *modelFile == "" || *outputFile == "" {
+			fmt.Println("Usage: dt -c predict -i <test.csv> -m <model.dt> -o <predictions.csv>")
+			return
+		}
+		err := PredictFromModel(*inputFile, *modelFile, *outputFile)
+		if err != nil {
+			fmt.Println("Error:", err)
+		}
 
-	// default:
-	// 	fmt.Println("Invalid command. Use 'train' or 'predict'.")
-	// }
-	 	header, dataset, _ := LoadCsv("dataset.csv")
-
-			splitedData := SplitDataset(dataset, header, `Outlook`)
-			for key,val:=range splitedData{
-
-				fmt.Println(key,val)
-			}
-
-	classes:=CountClassOccurrences(dataset)
-	fmt.Println(classes)
+	default:
+		fmt.Println("Invalid command. Use 'train' or 'predict'.")
+	}
 }
