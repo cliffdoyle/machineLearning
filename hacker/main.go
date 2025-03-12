@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -66,7 +67,7 @@ func detectColumnTypes(records [][]string) []ColumnType {
 		hasValidNumeric, hasValidDatetime := false, false
 
 		for _, row := range records {
-			value := row[j]
+			value := strings.TrimSpace(row[j])
 			if value == "" {
 				continue
 			}
@@ -103,6 +104,7 @@ func detectColumnTypes(records [][]string) []ColumnType {
 }
 
 func convertValue(value string, colType ColumnType) interface{} {
+	value = strings.TrimSpace(value)
 	switch colType {
 	case Numeric:
 		num, err := strconv.ParseFloat(value, 64)
