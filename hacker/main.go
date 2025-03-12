@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -130,46 +131,160 @@ func convertValue(value string, colType ColumnType) interface{} {
 	}
 }
 
-// CountClass counts the occurrence of the target class in
-// our dataset
 func CountClassOccurrences(dataset [][]interface{}) map[string]int {
 	classCounts := make(map[string]int)
-
 	for _, row := range dataset {
-
 		if len(row) == 0 {
 			continue
 		}
 		targetClass := fmt.Sprintf("%v", row[len(row)-1])
 		classCounts[targetClass]++
 	}
-
 	return classCounts
 }
 
-// Calculates probability of each class
 func ComputeProbabilities(classCounts map[string]int, totalSamples int) map[string]float64 {
 	probabilities := make(map[string]float64)
-
 	for class, count := range classCounts {
 		probabilities[class] = float64(count) / float64(totalSamples)
 	}
 	return probabilities
 }
 
-// Calculates entropy based on probabilities to determine the impurity of the dataset
 func Entropy(dataset [][]interface{}) float64 {
 	countClassOccurrences := CountClassOccurrences(dataset)
 	totalSamples := len(dataset)
 	probabilities := ComputeProbabilities(countClassOccurrences, totalSamples)
-	entropy := 0.0
 
+	entropy := 0.0
 	for _, probability := range probabilities {
 		if probability > 0 {
 			entropy -= probability * math.Log2(probability)
 		}
 	}
 	return entropy
+}
+
+func InformationGain(dataset [][]interface{}, header []string, attribute string) float64 {
+	totalSamples := len(dataset)
+	if totalSamples == 0 {
+		return 0
+	}
+
+	initialEntropy := Entropy(dataset)
+	splitted := SplitDataset(dataset, header, attribute)
+
+	weightedEntropy := 0.0
+	for _, subset := range splitted {
+		proportion := float64(len(subset)) / float64(totalSamples)
+		weightedEntropy += proportion * Entropy(subset)
+	}
+
+	return initialEntropy - weightedEntropy
+}
+
+func GainRatio(dataset [][]interface{}, header []string, attribute string) float64 {
+	totalSamples := len(dataset)
+	if totalSamples == 0 {
+		return 0
+	}
+
+	infoGain := InformationGain(dataset, header, attribute)
+	if infoGain == 0 {
+		return 0
+	}
+
+	splitted := SplitDataset(dataset, header, attribute)
+
+	splitInfo := 0.0
+	for _, subset := range splitted {
+		proportion := float64(len(subset)) / float64(totalSamples)
+		if proportion > 0 {
+			splitInfo -= proportion * math.Log2(proportion)
+		}
+	}
+
+	if splitInfo == 0 {
+		return 0
+	}
+
+	return infoGain / splitInfo
+}
+
+func SplitDataset(dataset [][]interface{}, header []string, attribute string) map[string][][]interface{} {
+	subsets := make(map[string][][]interface{})
+	attrIndex := -1
+
+	for i, col := range header {
+		if col == attribute {
+			attrIndex = i
+			break
+		}
+	}
+
+	if attrIndex == -1 {
+		fmt.Println("Error: Attribute not found in header")
+		return subsets
+	}
+
+	for _, row := range dataset {
+		if attrIndex < len(row) {
+			key := fmt.Sprintf("%v", row[attrIndex])
+			subsets[key] = append(subsets[key], row)
+		}
+	}
+
+	return subsets
+}
+
+func FindBestThreshold(dataset [][]interface{}, attrIndex int) float64 {
+	var values []float64
+	for _, row := range dataset {
+		if val, ok := row[attrIndex].(float64); ok {
+			values = append(values, val)
+		}
+	}
+
+	sort.Float64s(values)
+
+	var bestThreshold float64
+	bestInfoGain := -1.0
+
+	for i := 0; i < len(values)-1; i++ {
+		threshold := (values[i] + values[i+1]) / 2.0
+		infoGain := EvaluateThreshold(dataset, attrIndex, threshold)
+		if infoGain > bestInfoGain {
+			bestInfoGain = infoGain
+			bestThreshold = threshold
+		}
+	}
+
+	return bestThreshold
+}
+
+func EvaluateThreshold(dataset [][]interface{}, attrIndex int, threshold float64) float64 {
+	var leftSubset, rightSubset [][]interface{}
+
+	for _, row := range dataset {
+		if val, ok := row[attrIndex].(float64); ok {
+			if val <= threshold {
+				leftSubset = append(leftSubset, row)
+			} else {
+				rightSubset = append(rightSubset, row)
+			}
+		}
+	}
+
+	totalSamples := len(dataset)
+	if totalSamples == 0 {
+		return 0
+	}
+
+	initialEntropy := Entropy(dataset)
+	weightedEntropy := (float64(len(leftSubset)) / float64(totalSamples) * Entropy(leftSubset)) +
+		(float64(len(rightSubset)) / float64(totalSamples) * Entropy(rightSubset))
+
+	return initialEntropy - weightedEntropy
 }
 
 func main() {
@@ -180,7 +295,6 @@ func main() {
 	}
 
 	fmt.Println("Header:", head)
-
 	fmt.Println("Dataset:")
 	for _, row := range dataset {
 		fmt.Println(row)
@@ -192,5 +306,5 @@ func main() {
 	}
 	fmt.Println()
 
-	fmt.Println("Entropy:",Entropy(dataset))
+	fmt.Println("Entropy:", Entropy(dataset))
 }
