@@ -132,7 +132,7 @@ func convertValue(value string, colType ColumnType) interface{} {
 
 // CountClass counts the occurrence of the target class in
 // our dataset
-func CountClassOccurrences(dataset [][]string) map[string]int {
+func CountClassOccurrences(dataset [][]interface{}) map[string]int {
 	classCounts := make(map[string]int)
 
 	for _, row := range dataset {
@@ -140,7 +140,7 @@ func CountClassOccurrences(dataset [][]string) map[string]int {
 		if len(row) == 0 {
 			continue
 		}
-		targetClass := row[len(row)-1]
+		targetClass := fmt.Sprintf("%v", row[len(row)-1])
 		classCounts[targetClass]++
 	}
 
@@ -158,7 +158,7 @@ func ComputeProbabilities(classCounts map[string]int, totalSamples int) map[stri
 }
 
 // Calculates entropy based on probabilities to determine the impurity of the dataset
-func Entropy(dataset [][]string) float64 {
+func Entropy(dataset [][]interface{}) float64 {
 	countClassOccurrences := CountClassOccurrences(dataset)
 	totalSamples := len(dataset)
 	probabilities := ComputeProbabilities(countClassOccurrences, totalSamples)
@@ -191,4 +191,6 @@ func main() {
 		fmt.Print(c.String(), " ")
 	}
 	fmt.Println()
+
+	fmt.Println("Entropy:",Entropy(dataset))
 }

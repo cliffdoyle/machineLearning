@@ -1,4 +1,11 @@
-Name, Age, Birthdate
-Alice, 30, 1993-05-10
-Bob, 25, 1998-09-21
-Charlie, 40, 1983-02-18
+Age,Education,Income,Approved,Salary,Risk_Level
+25,Bachelor,45000,1,55000,Low
+30,Master,60000,1,72000,Medium
+22,High School,30000,0,40000,High
+28,Bachelor,52000,1,68000,Low
+35,PhD,85000,1,98000,Low
+40,High School,20000,0,25000,High
+23,Bachelor,40000,0,50000,Medium
+38,Master,72000,1,85000,Low
+45,PhD,90000,1,102000,Low
+50,High School,15000,0,20000,High
