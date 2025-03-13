@@ -287,24 +287,86 @@ func EvaluateThreshold(dataset [][]interface{}, attrIndex int, threshold float64
 	return initialEntropy - weightedEntropy
 }
 
+func BestAttribute(dataset [][]interface{}, head []string, colTypes []ColumnType) (string, float64) {
+	bestAttr := ""
+	bestGain := -1.0
+	bestThreshold := 0.0
+
+	// Find the target column index (last column)
+	targetIndex := len(head) - 1
+
+	// Compute the entropy of the full dataset
+	parentEntropy := Entropy(dataset)
+
+	for colIndex := 0; colIndex < targetIndex; colIndex++ {
+		attribute := head[colIndex]
+
+		// Handle categorical attributes
+		if colTypes[colIndex] == Categorical {
+			gain := InformationGain(dataset, head, attribute) // ✅ Corrected call
+			if gain > bestGain {
+				bestGain = gain
+				bestAttr = attribute
+				bestThreshold = 0 // No threshold for categorical
+			}
+		}
+
+		// Handle numeric or datetime attributes
+		if colTypes[colIndex] == Numeric || colTypes[colIndex] == Datetime {
+			threshold := FindBestThreshold(dataset, colIndex) // ✅ Corrected call
+			gain := InformationGain(dataset, head, attribute) // ✅ Corrected call
+
+			if gain > bestGain {
+				bestGain = gain
+				bestAttr = fmt.Sprintf("%s ≤ %.2f", attribute, threshold)
+				bestThreshold = threshold
+			}
+		}
+	}
+
+	return bestAttr, bestThreshold
+}
+
 func main() {
-	head, dataset, col, err := LoadCsv("data.csv")
+	head, dataset, colTypes, err := LoadCsv("data.csv")
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
 
-	fmt.Println("Header:", head)
-	fmt.Println("Dataset:")
+	// Print dataset
+	fmt.Println("\nHeader:", head)
+	fmt.Println("\nDataset:")
 	for _, row := range dataset {
 		fmt.Println(row)
 	}
 
-	fmt.Print("Column Types: ")
-	for _, c := range col {
+	// Print column types
+	fmt.Print("\nColumn Types: ")
+	for _, c := range colTypes {
 		fmt.Print(c.String(), " ")
 	}
 	fmt.Println()
 
-	fmt.Println("Entropy:", Entropy(dataset))
+	// Compute entropy of dataset
+	fmt.Println("\nEntropy of dataset:", Entropy(dataset))
+
+	// Find the best attribute and threshold
+	bestAttr, threshold := BestAttribute(dataset, head, colTypes)
+	fmt.Println("\nBest Attribute for Split:", bestAttr)
+
+	// If the best attribute was numeric or datetime, verify threshold split
+	if strings.Contains(bestAttr, "≤") {
+		fmt.Println("Threshold found:", threshold)
+		fmt.Println("\nSplitting dataset based on:", bestAttr)
+
+		// Get split subsets
+		splitted := SplitDataset(dataset, head, bestAttr)
+		for key, subset := range splitted {
+			fmt.Println("\nSubset for:", key)
+			for _, row := range subset {
+				fmt.Println(row)
+			}
+		}
+	}
 }
