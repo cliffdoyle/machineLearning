@@ -265,28 +265,61 @@ func GainRatio(dataset [][]interface{}, header []string, attribute string) float
 	return gainRatio
 }
 
-// Example usage
-func main() {
-	// Sample dataset with categorical, numerical, and date attributes
-	dataset := [][]interface{}{
-		{"Sunny", 85.0, "2023-01-01", "No"},
-		{"Rainy", 75.0, "2023-01-03", "Yes"},
-		{"Overcast", 78.0, "2023-01-05", "Yes"},
-		{"Sunny", 90.0, "2023-01-07", "No"},
+// BestAttribute finds the attribute with the highest Gain Ratio and returns it.
+func BestAttribute(dataset [][]interface{}, header []string) string {
+	bestAttr := ""
+	bestGainRatio := -1.0
+
+	for _, attr := range header[:len(header)-1] { // Exclude target variable
+		gainRatio := GainRatio(dataset, header, attr)
+
+		if gainRatio > bestGainRatio {
+			bestGainRatio = gainRatio
+			bestAttr = attr
+		}
 	}
 
-	header := []string{"Weather", "Temperature", "Date", "PlayTennis"}
-
-	// Test splitting
-	splitted := SplitDataset(dataset, header, "Temperature")
-	fmt.Println("Splitted Dataset:", splitted)
-
-	infoGain := InformationGain(dataset, header, "Temperature")
-	fmt.Println("Information Gain (Temperature):", infoGain)
-
-	gainRatio := GainRatio(dataset, header, "Temperature")
-	fmt.Println("Gain Ratio (Temperature):", gainRatio)
+	return bestAttr
 }
+
+func main(){
+	header := []string{"Color", "Size", "Weight", "Class"}
+dataset := [][]interface{}{
+	{"Red", "Small", 1.5, "A"},
+	{"Blue", "Large", 3.2, "B"},
+	{"Green", "Medium", 2.1, "A"},
+	{"Red", "Medium", 1.8, "B"},
+}
+
+bestAttr := BestAttribute(dataset, header)
+fmt.Println("Best attribute to split on:", bestAttr)
+
+}
+
+
+
+// // Example usage
+// func main() {
+// 	// Sample dataset with categorical, numerical, and date attributes
+// 	dataset := [][]interface{}{
+// 		{"Sunny", 85.0, "2023-01-01", "No"},
+// 		{"Rainy", 75.0, "2023-01-03", "Yes"},
+// 		{"Overcast", 78.0, "2023-01-05", "Yes"},
+// 		{"Sunny", 90.0, "2023-01-07", "No"},
+// 	}
+
+// 	header := []string{"Weather", "Temperature", "Date", "PlayTennis"}
+
+// 	// Test splitting
+// 	splitted := SplitDataset(dataset, header, "Temperature")
+// 	fmt.Println("Splitted Dataset:", splitted)
+
+// 	infoGain := InformationGain(dataset, header, "Temperature")
+// 	fmt.Println("Information Gain (Temperature):", infoGain)
+
+// 	gainRatio := GainRatio(dataset, header, "Temperature")
+// 	fmt.Println("Gain Ratio (Temperature):", gainRatio)
+// }
 
 
 
