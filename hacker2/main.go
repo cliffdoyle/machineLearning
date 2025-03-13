@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 	"math"
+	"sort"
 )
 
 // LoadCsv loads a CSV file and detects data types (categorical, numeric, date)
@@ -147,6 +148,148 @@ func Entropy(dataset [][]interface{}) float64 {
 }
 
 
+// SplitDataset handles both categorical and numerical attributes
+func SplitDataset(dataset [][]interface{}, header []string, attribute string) map[string][][]interface{} {
+	subsets := make(map[string][][]interface{})
+
+	attrIndex := -1
+	for i, col := range header {
+		if col == attribute {
+			attrIndex = i
+			break
+		}
+	}
+
+	if attrIndex == -1 {
+		fmt.Println("Error: Attribute not found in header")
+		return subsets
+	}
+
+	// Check the type of the attribute (categorical or numerical)
+	switch dataset[0][attrIndex].(type) {
+	case string:
+		// Categorical split
+		for _, row := range dataset {
+			if attrIndex < len(row) {
+				key, _ := row[attrIndex].(string)
+				subsets[key] = append(subsets[key], row)
+			}
+		}
+	default:
+		// Numeric or date split (find best threshold)
+		bestThreshold, leftSubset, rightSubset := FindBestThreshold(dataset, attrIndex)
+		subsets[fmt.Sprintf("<=%.2f", bestThreshold)] = leftSubset
+		subsets[fmt.Sprintf(">%.2f", bestThreshold)] = rightSubset
+	}
+
+	return subsets
+}
+
+// FindBestThreshold finds the best threshold to split a numeric attribute
+func FindBestThreshold(dataset [][]interface{}, attrIndex int) (float64, [][]interface{}, [][]interface{}) {
+	var values []float64
+	for _, row := range dataset {
+		if v, ok := row[attrIndex].(float64); ok {
+			values = append(values, v)
+		} else if v, ok := row[attrIndex].(string); ok {
+			parsedTime, err := time.Parse("2006-01-02", v) // Example: YYYY-MM-DD
+			if err == nil {
+				values = append(values, float64(parsedTime.Unix())) // Convert date to numeric value
+			}
+		}
+	}
+
+	sort.Float64s(values) // Sort values to find optimal threshold
+	bestThreshold := values[len(values)/2]
+
+	var leftSubset, rightSubset [][]interface{}
+	for _, row := range dataset {
+		val, _ := row[attrIndex].(float64)
+		if val <= bestThreshold {
+			leftSubset = append(leftSubset, row)
+		} else {
+			rightSubset = append(rightSubset, row)
+		}
+	}
+
+	return bestThreshold, leftSubset, rightSubset
+}
+
+// InformationGain calculates how much information is gained by splitting on an attribute
+func InformationGain(dataset [][]interface{}, header []string, attribute string) float64 {
+	totalSamples := len(dataset)
+	if totalSamples == 0 {
+		return 0
+	}
+
+	initialEntropy := Entropy(dataset)
+	splitted := SplitDataset(dataset, header, attribute)
+
+	weightedEntropy := 0.0
+	for _, subset := range splitted {
+		proportion := float64(len(subset)) / float64(totalSamples)
+		weightedEntropy += proportion * Entropy(subset)
+	}
+
+	informationGain := initialEntropy - weightedEntropy
+	return informationGain
+}
+
+// GainRatio calculates the gain ratio, a normalized version of information gain
+func GainRatio(dataset [][]interface{}, header []string, attribute string) float64 {
+	totalSamples := len(dataset)
+	if totalSamples == 0 {
+		return 0
+	}
+
+	infoGain := InformationGain(dataset, header, attribute)
+	if infoGain == 0 {
+		return 0
+	}
+
+	splitted := SplitDataset(dataset, header, attribute)
+
+	splitInfo := 0.0
+	for _, subset := range splitted {
+		proportion := float64(len(subset)) / float64(totalSamples)
+		if proportion > 0 {
+			splitInfo -= proportion * math.Log2(proportion)
+		}
+	}
+
+	if splitInfo == 0 {
+		return 0
+	}
+
+	gainRatio := infoGain / splitInfo
+	return gainRatio
+}
+
+// Example usage
+func main() {
+	// Sample dataset with categorical, numerical, and date attributes
+	dataset := [][]interface{}{
+		{"Sunny", 85.0, "2023-01-01", "No"},
+		{"Rainy", 75.0, "2023-01-03", "Yes"},
+		{"Overcast", 78.0, "2023-01-05", "Yes"},
+		{"Sunny", 90.0, "2023-01-07", "No"},
+	}
+
+	header := []string{"Weather", "Temperature", "Date", "PlayTennis"}
+
+	// Test splitting
+	splitted := SplitDataset(dataset, header, "Temperature")
+	fmt.Println("Splitted Dataset:", splitted)
+
+	infoGain := InformationGain(dataset, header, "Temperature")
+	fmt.Println("Information Gain (Temperature):", infoGain)
+
+	gainRatio := GainRatio(dataset, header, "Temperature")
+	fmt.Println("Gain Ratio (Temperature):", gainRatio)
+}
+
+
+
 // func main() {
 	// header, dataset, colTypes, err := LoadCsv("data.csv")
 	// if err != nil {
@@ -158,24 +301,24 @@ func Entropy(dataset [][]interface{}) float64 {
 	// fmt.Println("Column Types:", colTypes)
 	// fmt.Println("Dataset:", dataset)
 
-	// Example usage
-func main() {
-	// Sample dataset with categorical class labels
-	dataset := [][]interface{}{
-		{"Sunny", 85.0, "Hot", "No"},
-		{"Rainy", 75.0, "Cool", "Yes"},
-		{"Overcast", 78.0, "Mild", "Yes"},
-		{"Sunny", 90.0, "Hot", "No"},
-	}
+// 	// Example usage
+// func main() {
+// 	// Sample dataset with categorical class labels
+// 	dataset := [][]interface{}{
+// 		{"Sunny", 85.0, "Hot", "No"},
+// 		{"Rainy", 75.0, "Cool", "Yes"},
+// 		{"Overcast", 78.0, "Mild", "Yes"},
+// 		{"Sunny", 90.0, "Hot", "No"},
+// 	}
 
-	classCounts := CountClassOccurrences(dataset)
-	fmt.Println("Class Occurrences:", classCounts)
+// 	classCounts := CountClassOccurrences(dataset)
+// 	fmt.Println("Class Occurrences:", classCounts)
 
-	totalSamples := len(dataset)
-	probabilities := ComputeProbabilities(classCounts, totalSamples)
-	fmt.Println("Class Probabilities:", probabilities)
+// 	totalSamples := len(dataset)
+// 	probabilities := ComputeProbabilities(classCounts, totalSamples)
+// 	fmt.Println("Class Probabilities:", probabilities)
 
-	entropy := Entropy(dataset)
-	fmt.Println("Entropy of dataset:", entropy)
-}
+// 	entropy := Entropy(dataset)
+// 	fmt.Println("Entropy of dataset:", entropy)
+// }
 
