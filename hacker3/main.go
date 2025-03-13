@@ -188,33 +188,34 @@ func SplitDataset(dataset [][]interface{}, header []string, attribute string) ma
 
 	return subsets
 }
-
-// FindBestThreshold finds the best threshold to split a numeric attribute
+// FindBestThreshold finds the best threshold to split a numeric or time attribute
 func FindBestThreshold(dataset [][]interface{}, attrIndex int) (float64, [][]interface{}, [][]interface{}) {
 	var values []float64
 	for _, row := range dataset {
 		if v, ok := row[attrIndex].(float64); ok {
 			values = append(values, v)
 		} else if v, ok := row[attrIndex].(time.Time); ok {
-			values = append(values, float64(v.Unix()))
-			// parsedTime, err := time.Parse("2006-01-02", v) // Example: YYYY-MM-DD
-			// if err == nil {
-			// 	values = append(values, float64(parsedTime.Unix())) // Convert date to numeric value
-			// }
+			values = append(values, float64(v.Unix())) // Convert time to Unix timestamp
 		}
 	}
 
-	if len(values)==0{
-		fmt.Println("Error: No numeric values found in dataset for given attribute")
+	if len(values) == 0 {
+		fmt.Println("Error: No numeric or time values found in dataset for given attribute")
 		return 0, nil, nil
 	}
 
 	sort.Float64s(values) // Sort values to find optimal threshold
-	bestThreshold := values[len(values)/2]
+	bestThreshold := values[len(values)/2] // Use median as the threshold
 
 	var leftSubset, rightSubset [][]interface{}
 	for _, row := range dataset {
-		val, _ := row[attrIndex].(float64)
+		var val float64
+		if v, ok := row[attrIndex].(float64); ok {
+			val = v
+		} else if v, ok := row[attrIndex].(time.Time); ok {
+			val = float64(v.Unix())
+		}
+
 		if val <= bestThreshold {
 			leftSubset = append(leftSubset, row)
 		} else {
@@ -248,6 +249,7 @@ func InformationGain(dataset [][]interface{}, header []string, attrIndex int) fl
 				subsets[key] = append(subsets[key], row)
 			}
 		}
+
 	default:
 		// Numeric split - Find best threshold first
 		bestThreshold, leftSubset, rightSubset = FindBestThreshold(dataset, attrIndex)
@@ -263,27 +265,28 @@ func InformationGain(dataset [][]interface{}, header []string, attrIndex int) fl
 	}
 
 	informationGain := initialEntropy - weightedEntropy
+	fmt.Printf("information gain for %v: %v\n",informationGain)
 	return informationGain
 }
 
-func BestAttributeToSplit(dataset [][]interface{}, header []string) (string, int, float64) {
-	bestAttr := ""
-	bestAttrIndex := -1
-	highestGain := 0.0
+// func BestAttributeToSplit(dataset [][]interface{}, header []string) (string, int, float64) {
+// 	bestAttr := ""
+// 	bestAttrIndex := -1
+// 	highestGain := 0.0
 
-	for i := 0; i < len(header)-1; i++ { // Exclude the last column (target variable)
-		ig := InformationGain(dataset, header, i)
-		fmt.Printf("Attribute: %s, Information Gain: %.4f\n", header[i], ig)
+// 	for i := 0; i < len(header)-1; i++ { // Exclude the last column (target variable)
+// 		ig := InformationGain(dataset, header, i)
+// 		fmt.Printf("Attribute: %s, Information Gain: %.4f\n", header[i], ig)
 
-		if ig > highestGain {
-			highestGain = ig
-			bestAttr = header[i]
-			bestAttrIndex = i
-		}
-	}
+// 		if ig > highestGain {
+// 			highestGain = ig
+// 			bestAttr = header[i]
+// 			bestAttrIndex = i
+// 		}
+// 	}
 
-	return bestAttr, bestAttrIndex, highestGain
-}
+// 	return bestAttr, bestAttrIndex, highestGain
+// }
 
 
 // GainRatio calculates the gain ratio of an attribute
@@ -372,6 +375,84 @@ func BestAttributeByGainRatio(dataset [][]interface{}, header []string) (string,
 // 	return bestAttr
 // }
 
+// Node represents a decision tree node
+type Node struct {
+	Attribute   string                 // Attribute used for splitting
+	Children    map[string]*Node       // Child nodes (key: attribute value, value: child node)
+	IsLeaf      bool                   // True if this is a leaf node
+	Class       string                 // Class label (if leaf)
+}
+
+// BuildTree constructs the decision tree recursively
+func BuildTree(dataset [][]interface{}, header []string) *Node {
+	// Base case: If all instances belong to the same class, return a leaf node
+	if allSameClass(dataset) {
+		return &Node{
+			IsLeaf: true,
+			Class:  dataset[0][len(dataset[0])-1].(string), // Last column is the target
+		}
+	}
+
+	// Find the best attribute to split on
+	bestAttr, _, _ := BestAttributeByGainRatio(dataset, header)
+
+	// Create a new node for the best attribute
+	node := &Node{
+		Attribute: bestAttr,
+		Children:  make(map[string]*Node),
+	}
+
+	// Split the dataset based on the best attribute
+	subsets := SplitDataset(dataset, header, bestAttr)
+
+	// Recursively build the tree for each subset
+	for value, subset := range subsets {
+		if len(subset) == 0 {
+			// If the subset is empty, create a leaf node with the majority class
+			node.Children[value] = &Node{
+				IsLeaf: true,
+				Class:  majorityClass(dataset),
+			}
+		} else {
+			// Recursively build the tree for the subset
+			node.Children[value] = BuildTree(subset, header)
+		}
+	}
+
+	return node
+}
+
+
+// allSameClass checks if all instances in the dataset belong to the same class
+func allSameClass(dataset [][]interface{}) bool {
+	if len(dataset) == 0 {
+		return true
+	}
+
+	targetClass := dataset[0][len(dataset[0])-1].(string)
+	for _, row := range dataset {
+		if row[len(row)-1].(string) != targetClass {
+			return false
+		}
+	}
+	return true
+}
+
+// majorityClass returns the majority class in the dataset
+func majorityClass(dataset [][]interface{}) string {
+	classCounts := CountClassOccurrences(dataset)
+	majorityClass := ""
+	maxCount := 0
+
+	for class, count := range classCounts {
+		if count > maxCount {
+			maxCount = count
+			majorityClass = class
+		}
+	}
+	return majorityClass
+}
+
 func main() {
 	header, dataset, colTypes, err := LoadCsv("data.csv")
 	if err != nil {
@@ -389,11 +470,14 @@ func main() {
 	probabilities := ComputeProbabilities(classCount, totalsamples)
 	fmt.Println("probabilities", probabilities)
 	fmt.Println("entropies:", Entropy(dataset))
-	bestAttr:=BestAttribute(dataset,header)
-	splitted:=SplitDataset(dataset,header,bestAttr)
+	bestAttr,bestAttrInd,highestGr:=BestAttributeByGainRatio(dataset,header)
+	// splitted:=SplitDataset(dataset,header,bestAttr)
 	fmt.Printf("Best attribute %v\n",bestAttr)
+	fmt.Printf("Highest Gain Ratio %v\n",highestGr)
+	fmt.Printf("BestAttrIndex %v\n",bestAttrInd)
 
-	fmt.Println("Splitted dataset",splitted)
+
+	// fmt.Println("Splitted dataset",splitted)
 
 	fmt.Printf("column types: %v\n", colTypes)
 }
