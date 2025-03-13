@@ -282,6 +282,69 @@ func BestAttribute(dataset [][]interface{}, header []string) string {
 	return bestAttr
 }
 
+type TreeNode struct {
+	Attribute  string
+	Threshold  float64
+	Children   map[string]*TreeNode
+	Class      string
+	IsLeaf     bool
+}
+
+// BuildDecisionTree constructs a decision tree based on the dataset.
+func BuildDecisionTree(dataset [][]interface{}, header []string) *TreeNode {
+	classCounts := CountClassOccurrences(dataset)
+
+	// If all samples belong to the same class, return a leaf node
+	if len(classCounts) == 1 {
+		for class := range classCounts {
+			return &TreeNode{Class: class, IsLeaf: true}
+		}
+	}
+
+	bestAttr := BestAttribute(dataset, header)
+	if bestAttr == "" {
+		// If no good split is found, return the most common class
+		mostCommonClass := ""
+		maxCount := 0
+		for class, count := range classCounts {
+			if count > maxCount {
+				maxCount = count
+				mostCommonClass = class
+			}
+		}
+		return &TreeNode{Class: mostCommonClass, IsLeaf: true}
+	}
+
+	attrIndex := -1
+	for i, col := range header {
+		if col == bestAttr {
+			attrIndex = i
+			break
+		}
+	}
+
+	node := &TreeNode{Attribute: bestAttr, Children: make(map[string]*TreeNode)}
+
+	// Determine whether the attribute is numeric or categorical
+	switch dataset[0][attrIndex].(type) {
+	case string:
+		// Categorical split
+		splitted := SplitDataset(dataset, header, bestAttr)
+		for attrValue, subset := range splitted {
+			node.Children[attrValue] = BuildDecisionTree(subset, header)
+		}
+	default:
+		// Numeric split (find threshold)
+		threshold, leftSubset, rightSubset := FindBestThreshold(dataset, attrIndex)
+		node.Threshold = threshold
+		node.Children[fmt.Sprintf("<=%.2f", threshold)] = BuildDecisionTree(leftSubset, header)
+		node.Children[fmt.Sprintf(">%.2f", threshold)] = BuildDecisionTree(rightSubset, header)
+	}
+
+	return node
+}
+
+
 func main(){
 	header := []string{"Color", "Size", "Weight", "Class"}
 dataset := [][]interface{}{
