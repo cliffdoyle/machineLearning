@@ -393,23 +393,48 @@ func LoadModel(modelFile string) (*TreeNode, error) {
 }
 
 // Predict a single instance
-func Predict(tree *TreeNode, instance map[string]string) string {
-	if tree.IsLeaf {
-		return tree.Class
+func Predict(node *TreeNode, instance map[string]string) string {
+	if node.IsLeaf {
+		return node.Class
 	}
 
-	attributeValue, exists := instance[tree.Attribute]
+	attrValue, exists := instance[node.Attribute]
 	if !exists {
 		return "Unknown"
 	}
 
-	child, found := tree.Children[attributeValue]
-	if !found {
-		return "Unknown"
+	// If value exists, navigate tree
+	if child, found := node.Children[attrValue]; found {
+		return Predict(child, instance)
 	}
 
-	return Predict(child, instance)
+	// Fallback: If unseen value, return majority class
+	return FindMostCommonClass(node)
 }
+
+func FindMostCommonClass(node *TreeNode) string {
+	classCount := make(map[string]int)
+
+	for _, child := range node.Children {
+		if child.IsLeaf {
+			classCount[child.Class]++
+		} else {
+			classCount[FindMostCommonClass(child)]++
+		}
+	}
+
+	// Find most frequent class
+	var mostCommonClass string
+	maxCount := 0
+	for class, count := range classCount {
+		if count > maxCount {
+			mostCommonClass = class
+			maxCount = count
+		}
+	}
+	return mostCommonClass
+}
+
 
 // Predict from test CSV using trained model
 func PredictFromModel(inputFile, modelFile, outputFile string) error {
