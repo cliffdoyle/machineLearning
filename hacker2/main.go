@@ -8,6 +8,8 @@ import (
 	"time"
 	"math"
 	"sort"
+	"encoding/json"
+	"flag"
 )
 
 // LoadCsv loads a CSV file and detects data types (categorical, numeric, date)
@@ -344,20 +346,180 @@ func BuildDecisionTree(dataset [][]interface{}, header []string) *TreeNode {
 	return node
 }
 
+// Train decision tree and save model
+func TrainModel(inputFile, targetCol, outputFile string) error {
+	// Load dataset
+	header, dataset, _, err := LoadCsv(inputFile) // Ignoring colTypes
+	if err != nil {
+		return err
+	}
 
-func main(){
-	header := []string{"Color", "Size", "Weight", "Class"}
-dataset := [][]interface{}{
-	{"Red", "Small", 1.5, "A"},
-	{"Blue", "Large", 3.2, "B"},
-	{"Green", "Medium", 2.1, "A"},
-	{"Red", "Medium", 1.8, "B"},
+	// Train decision tree
+	tree := BuildDecisionTree(dataset, header)
+
+	// Save model as JSON
+	modelFile, err := os.Create(outputFile)
+	if err != nil {
+		return fmt.Errorf("Error creating model file: %v", err)
+	}
+	defer modelFile.Close()
+
+	encoder := json.NewEncoder(modelFile)
+	err = encoder.Encode(tree)
+	if err != nil {
+		return fmt.Errorf("Error writing model: %v", err)
+	}
+
+	fmt.Println("Model saved to", outputFile)
+	return nil
 }
 
-bestAttr := BestAttribute(dataset, header)
-fmt.Println("Best attribute to split on:", bestAttr)
+// Load model from JSON file
+func LoadModel(modelFile string) (*TreeNode, error) {
+	file, err := os.Open(modelFile)
+	if err != nil {
+		return nil, fmt.Errorf("Error opening model file: %v", err)
+	}
+	defer file.Close()
 
+	var tree TreeNode
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&tree)
+	if err != nil {
+		return nil, fmt.Errorf("Error decoding model file: %v", err)
+	}
+
+	return &tree, nil
 }
+
+// Predict a single instance
+func Predict(tree *TreeNode, instance map[string]string) string {
+	if tree.IsLeaf {
+		return tree.Class
+	}
+
+	attributeValue, exists := instance[tree.Attribute]
+	if !exists {
+		return "Unknown"
+	}
+
+	child, found := tree.Children[attributeValue]
+	if !found {
+		return "Unknown"
+	}
+
+	return Predict(child, instance)
+}
+
+// Predict from test CSV using trained model
+func PredictFromModel(inputFile, modelFile, outputFile string) error {
+	// Load dataset
+	header, dataset, _, err := LoadCsv(inputFile) // Ignoring colTypes
+	if err != nil {
+		return err
+	}
+
+	// Load model
+	tree, err := LoadModel(modelFile)
+	if err != nil {
+		return err
+	}
+
+	// Open output file
+	outFile, err := os.Create(outputFile)
+	if err != nil {
+		return fmt.Errorf("Error creating output file: %v", err)
+	}
+	defer outFile.Close()
+
+	writer := csv.NewWriter(outFile)
+	defer writer.Flush()
+
+	// Write header with "Prediction" column
+	newHeader := append(header, "Prediction")
+	writer.Write(newHeader)
+
+	// Predict for each row
+	for _, row := range dataset {
+		instance := make(map[string]string)
+		for i, value := range row {
+			instance[header[i]] = fmt.Sprintf("%v", value) // Convert to string
+		}
+
+		prediction := Predict(tree, instance)
+		newRow := append(interfaceSliceToStringSlice(row), prediction)
+		writer.Write(newRow)
+	}
+	fmt.Println("Predictions saved to", outputFile)
+	return nil
+}
+
+// Convert interface{} slice to string slice
+func interfaceSliceToStringSlice(row []interface{}) []string {
+	result := make([]string, len(row))
+	for i, val := range row {
+		result[i] = fmt.Sprintf("%v", val)
+	}
+	return result
+}
+
+func main() {
+	// Define CLI flags
+	command := flag.String("c", "", "Command: train or predict")
+	inputFile := flag.String("i", "", "Input CSV file")
+	targetCol := flag.String("t", "", "Target column (only for training)")
+	modelFile := flag.String("m", "", "Model file (only for prediction)")
+	outputFile := flag.String("o", "", "Output file")
+
+	// Parse flags
+	flag.Parse()
+
+	// Execute command
+	switch *command {
+	case "train":
+		if *inputFile == "" || *targetCol == "" || *outputFile == "" {
+			fmt.Println("Usage: dt -c train -i <input.csv> -t <target> -o <model.dt>")
+			return
+		}
+		err := TrainModel(*inputFile, *targetCol, *outputFile)
+		if err != nil {
+			fmt.Println("Error:", err)
+		}
+
+	case "predict":
+		if *inputFile == "" || *modelFile == "" || *outputFile == "" {
+			fmt.Println("Usage: dt -c predict -i <test.csv> -m <model.dt> -o <predictions.csv>")
+			return
+		}
+		err := PredictFromModel(*inputFile, *modelFile, *outputFile)
+		if err != nil {
+			fmt.Println("Error:", err)
+		}
+
+	default:
+		fmt.Println("Invalid command. Use 'train' or 'predict'.")
+	}
+}
+
+
+
+// func main(){
+// 	header := []string{"Color", "Size", "Weight", "Class"}
+// dataset := [][]interface{}{
+// 	{"Red", "Small", 1.5, "A"},
+// 	{"Blue", "Large", 3.2, "B"},
+// 	{"Green", "Medium", 2.1, "A"},
+// 	{"Red", "Medium", 1.8, "B"},
+// }
+
+// bestAttr := BestAttribute(dataset, header)
+// fmt.Println("Best attribute to split on:", bestAttr)
+
+
+// tree := BuildDecisionTree(dataset, header)
+// fmt.Println(tree)
+
+// }
 
 
 
